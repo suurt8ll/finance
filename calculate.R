@@ -76,3 +76,30 @@ ggplot(cagr_results, aes(x = Period, y = CAGR)) +
   ) +
   theme_minimal() +
   coord_flip()  # Flip the coordinates for better readability
+
+# Function to calculate financial freedom timeline
+financial_freedom <- function() {
+  # Ask the user for inputs
+  current_investment <- as.numeric(readline(prompt = "Enter your current investment size ($): "))
+  withdrawal_rate <- as.numeric(readline(prompt = "Enter your withdrawal rate (e.g., 0.04 for 4%): "))
+  annual_expenses <- as.numeric(readline(prompt = "Enter your annual expenses ($): "))
+  cagr <- as.numeric(readline(prompt = "Enter your projected CAGR (e.g., 0.2 for 20%): "))
+  
+  # Calculate target portfolio size
+  target_portfolio <- annual_expenses / withdrawal_rate
+  
+  # Calculate years to financial freedom
+  years_to_freedom <- log(target_portfolio / current_investment) / log(1 + cagr)
+  
+  # Display results
+  if (years_to_freedom > 0) {
+    cat("\nTo achieve financial freedom:")
+    cat("\n - Target Portfolio Size: $", round(target_portfolio, 2))
+    cat("\n - Years Needed: ", round(years_to_freedom, 2), " years\n")
+  } else {
+    cat("\nCongratulations! You already have enough for financial freedom based on your inputs.\n")
+  }
+}
+
+# Run the function
+financial_freedom()
