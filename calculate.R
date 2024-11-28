@@ -52,18 +52,27 @@ for (start_yr in start_year:end_year) {
 # Print the CAGR results
 print(cagr_results)
 
-# Load necessary library for plotting
+# Ensure ggplot2 is loaded
 if (!requireNamespace("ggplot2", quietly = TRUE)) {
   install.packages("ggplot2")
 }
 library(ggplot2)
 
+# Ensure the Period column is ordered chronologically
+cagr_results$Period <- factor(cagr_results$Period, levels = rev(unique(cagr_results$Period)))
+
 # Create a bar plot for CAGR
 ggplot(cagr_results, aes(x = Period, y = CAGR)) +
   geom_bar(stat = "identity", fill = "orange", color = "black") +
-  labs(title = "Compound Annual Growth Rate (CAGR) for Overlapping Periods",
-       x = "Period",
-       y = "CAGR") +
-  geom_text(aes(label = scales::percent(CAGR, accuracy = 1)), hjust = -0.25, color = "black") +
+  labs(
+    title = "Compound Annual Growth Rate (CAGR) for Overlapping Periods",
+    x = "Period",
+    y = "CAGR"
+  ) +
+  geom_text(
+    aes(label = scales::percent(CAGR, accuracy = 1)),
+    hjust = -0.25,
+    color = "black"
+  ) +
   theme_minimal() +
   coord_flip()  # Flip the coordinates for better readability
