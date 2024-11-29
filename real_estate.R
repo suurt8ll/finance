@@ -59,3 +59,8 @@ gg <- ggplot(long_data, aes(x = Date, y = Value, color = Metric)) +
     legend.position = "bottom"
   )
 ggplotly(gg)
+
+# Prepare the new data frame with Date and Close columns
+new_data <- data.frame(Date = data$Date, Close = data$Price_A)
+# Save the new data frame to a CSV file
+write.csv(new_data, "Tartu.csv", row.names = FALSE, quote = FALSE)
