@@ -11,18 +11,19 @@ library(ggplot2)
 
 # ---- Load and Prepare Data ----
 # Load the data from the CSV file
-bitcoin_data <- read.csv("bitcoin_daily_prices.csv")
+csv_file <- "bitcoin_daily_prices.csv"
+price_data <- read.csv(csv_file)
 
 # Ensure your Date column is in Date format
-bitcoin_data$Date <- as.Date(bitcoin_data$Date)
+price_data$Date <- as.Date(price_data$Date)
 
 # Sort data by Date
-bitcoin_data <- bitcoin_data[order(bitcoin_data$Date), ]
+price_data <- price_data[order(price_data$Date), ]
 
 # ---- Determine Full Year Range ----
 # Find the earliest and latest dates
-min_date <- min(bitcoin_data$Date)
-max_date <- max(bitcoin_data$Date)
+min_date <- min(price_data$Date)
+max_date <- max(price_data$Date)
 
 # Determine the earliest full year
 start_year <- ifelse(month(min_date) == 1 & day(min_date) == 1, year(min_date), year(min_date) + 1)
@@ -55,7 +56,7 @@ calculate_cagr <- function(start_date, end_date, data) {
 # Loop through each possible start year and calculate CAGR
 for (start_yr in start_year:end_year) {
   start_date <- as.Date(paste0(start_yr, "-01-01"))
-  cagr <- calculate_cagr(start_date, end_date, bitcoin_data)
+  cagr <- calculate_cagr(start_date, end_date, price_data)
   period_label <- paste0(start_yr, "-", end_year)
   cagr_results_yearly <- rbind(cagr_results_yearly, data.frame(Period = period_label, CAGR = cagr))
 }
@@ -102,12 +103,12 @@ calculate_subperiod_cagrs <- function(data, period_length) {
     # Filter for the subperiod
     subperiod_data <- data[data$Date >= start_date & data$Date <= end_date, ]
     
-    # If a valid subperiod exists, calculate the CAGR
-    if (nrow(subperiod_data) > 1) {
+    # Check if the subperiod matches the specified period length
+    actual_years <- as.numeric(difftime(max(subperiod_data$Date), start_date, units = "days")) / 365.25
+    if (actual_years >= period_length && nrow(subperiod_data) > 1) {
       start_value <- subperiod_data$Close[1]
       end_value <- subperiod_data$Close[nrow(subperiod_data)]
-      years <- as.numeric(difftime(max(subperiod_data$Date), start_date, units = "days")) / 365.25
-      cagr <- (end_value / start_value)^(1 / years) - 1
+      cagr <- (end_value / start_value)^(1 / actual_years) - 1
       
       # Append the result to the dataframe
       cagr_results <- rbind(
@@ -192,7 +193,7 @@ summarize_subperiod_cagrs <- function(cagr_results, period_length) {
 period_length <- 8
 
 # Step 1: Calculate the subperiod CAGRs
-cagr_results <- calculate_subperiod_cagrs(bitcoin_data, period_length)
+cagr_results <- calculate_subperiod_cagrs(price_data, period_length)
 
 # Step 2: Visualize the subperiod CAGRs
 if (!is.null(cagr_results) && nrow(cagr_results) > 0) {
