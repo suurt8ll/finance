@@ -1,7 +1,8 @@
-# Load necessary library
+# Load necessary libraries
 library(ggplot2)
 library(plotly)
 library(reshape2)
+library(lubridate) # For handling dates
 
 # Read the data, excluding Listings columns
 data <- read.csv(
@@ -20,8 +21,9 @@ data <- read.csv(
 # Rename columns for easier use
 colnames(data) <- c("Date", "Price_A", "Active_A", "Price_B", "Active_B")
 
-# Convert Date to a proper date format (assuming monthly data)
-data$Date <- as.Date(paste0("01-", data$Date), format = "%d-%m.%Y")
+# If you want the last day of the month instead:
+data$Date <- as.Date(paste0("01.", data$Date), format = "%d.%m.%Y") # Parse as first day
+data$Date <- ceiling_date(data$Date, "month") - days(1) # Shift to last day of the month
 
 # Reshape data for faceting
 long_data <- melt(data, id.vars = "Date", variable.name = "Metric", value.name = "Value")
