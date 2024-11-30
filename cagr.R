@@ -1,4 +1,5 @@
 # ---- Load Necessary Libraries ----
+
 if (!requireNamespace("lubridate", quietly = TRUE)) {
   install.packages("lubridate")
 }
@@ -10,9 +11,10 @@ if (!requireNamespace("ggplot2", quietly = TRUE)) {
 library(ggplot2)
 
 # ---- Load and Prepare Data ----
+
 # Load the data from the CSV file
-csv_file <- "bitcoin_daily_prices.csv"
-#csv_file <- "Tartu.csv"
+#csv_file <- "bitcoin_daily_prices.csv"
+csv_file <- "Tartu.csv"
 price_data <- read.csv(csv_file)
 
 # Ensure your Date column is in Date format
@@ -22,7 +24,7 @@ price_data$Date <- as.Date(price_data$Date)
 price_data <- price_data[order(price_data$Date), ]
 
 
-# ---- Subperiod CAGR Calculation Function ----
+# ---- Functions ----
 
 calculate_subperiod_cagrs <- function(data, period_length) {
   # Ensure the dataset is sorted by date
@@ -39,19 +41,20 @@ calculate_subperiod_cagrs <- function(data, period_length) {
   # Loop through all possible start dates
   for (i in 1:(nrow(data) - 1)) {
     start_date <- data$Date[i]
-    end_date <- start_date + as.difftime(period_length * 365, units = "days")
+    end_date <- start_date %m+% years(period_length) # Add precise years
     
-    # Filter for the subperiod
     subperiod_data <- data[data$Date >= start_date & data$Date <= end_date, ]
     
-    # Check if the subperiod matches the specified period length
-    actual_years <- as.numeric(difftime(max(subperiod_data$Date), start_date, units = "days")) / 365
-    if (actual_years >= period_length && nrow(subperiod_data) > 1) {
+    if (nrow(subperiod_data) > 1) {
+      actual_years <- as.numeric(interval(start_date, max(subperiod_data$Date)) / years(1))
+      
+      print(c(start_date, end_date))
+      print(actual_years)
+      
       start_value <- subperiod_data$Close[1]
       end_value <- subperiod_data$Close[nrow(subperiod_data)]
       cagr <- (end_value / start_value)^(1 / actual_years) - 1
       
-      # Append the result to the dataframe
       cagr_results <- rbind(
         cagr_results,
         data.frame(Start_Date = start_date, End_Date = max(subperiod_data$Date), CAGR = cagr)
@@ -59,10 +62,9 @@ calculate_subperiod_cagrs <- function(data, period_length) {
     }
   }
   
+  
   return(cagr_results)
 }
-
-# ---- Subperiod CAGR Visualization Function ----
 
 visualize_subperiod_cagrs <- function(cagr_results, period_length) {
   library(ggplot2)
@@ -99,8 +101,6 @@ visualize_subperiod_cagrs <- function(cagr_results, period_length) {
     ) +
     theme_minimal()
 }
-
-# ---- Subperiod CAGR Summary Function ----
 
 summarize_subperiod_cagrs <- function(cagr_results, period_length) {
   if (nrow(cagr_results) == 0) {
