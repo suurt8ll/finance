@@ -13,17 +13,14 @@ calculate_subperiod_cagrs <- function(data, period_length, selected_range) {
     stringsAsFactors = FALSE
   )
   
-  # Extract the start and end of the selected range
   selected_start <- selected_range[1]
   selected_end <- selected_range[2]
   
-  # Use withProgress to track progress
   withProgress(message = "Calculating CAGRs", value = 0, {
     for (i in 1:(nrow(data) - 1)) {
       start_date <- data$Date[i]
       end_date <- start_date %m+% years(period_length)
       
-      # Skip if start_date or end_date is outside the selected range
       if (start_date < selected_start || end_date > selected_end) {
         next
       }
@@ -41,7 +38,6 @@ calculate_subperiod_cagrs <- function(data, period_length, selected_range) {
         )
       }
       
-      # Increment progress
       incProgress(1 / (nrow(data) - 1))
     }
   })
@@ -93,7 +89,8 @@ ui <- fluidPage(
     mainPanel(
       tabsetPanel(
         tabPanel("Summary", verbatimTextOutput("summary")),
-        tabPanel("Visualization", plotOutput("plot"))
+        tabPanel("Visualization", plotOutput("plot")),
+        tabPanel("Price History", plotOutput("price_history_plot"))
       )
     )
   )
@@ -138,17 +135,11 @@ server <- function(input, output, session) {
     period_length <- input$period
     file_name <- input$file_select
     date_range_key <- paste(as.character(input$date_range), collapse = "_")
-    
-    # Create a unique key for the cache
     cache_key <- paste(file_name, period_length, date_range_key, sep = "_")
-    
-    # Check if the result is already cached
     if (!is.null(cache[[cache_key]])) {
       message("Using cached results for ", cache_key)
       return(cache[[cache_key]])
     }
-    
-    # Otherwise, compute and store the results in the cache
     result <- calculate_subperiod_cagrs(filtered_data(), period_length, input$date_range)
     cache[[cache_key]] <- result
     return(result)
@@ -177,10 +168,24 @@ server <- function(input, output, session) {
     }
   })
   
-  # Render plot
+  # Render main visualization
   output$plot <- renderPlot({
     req(results())
     visualize_subperiod_cagrs(results(), input$period)
+  })
+  
+  # Render price history plot
+  output$price_history_plot <- renderPlot({
+    req(filtered_data())
+    ggplot(filtered_data(), aes(x = Date, y = Close)) +
+      geom_line(color = "blue") +
+      scale_y_log10() +
+      labs(
+        title = "Price History (Log Scale)",
+        x = "Date",
+        y = "Price (Log Scale)"
+      ) +
+      theme_minimal()
   })
 }
 
