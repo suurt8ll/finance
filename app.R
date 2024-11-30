@@ -1,6 +1,7 @@
 library(shiny)
 library(ggplot2)
 library(lubridate)
+library(dplyr)
 
 # Function to calculate subperiod CAGRs
 calculate_subperiod_cagrs <- function(data, period_length, selected_range) {
@@ -107,7 +108,7 @@ server <- function(input, output, session) {
   data <- reactive({
     req(input$file_select)
     file_path <- file.path(getwd(), input$file_select)
-    df <- read.csv(file_path)
+    df <- read.csv(file_path) %>% select(Date, Close)
     df$Date <- as.Date(df$Date)
     df
   })
