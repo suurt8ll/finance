@@ -2,7 +2,7 @@ library(shiny)
 library(ggplot2)
 library(lubridate)
 
-# Functions (as before)
+# Functions
 calculate_subperiod_cagrs <- function(data, period_length) {
   data <- data[order(data$Date), ]
   cagr_results <- data.frame(
@@ -11,21 +11,30 @@ calculate_subperiod_cagrs <- function(data, period_length) {
     CAGR = numeric(),
     stringsAsFactors = FALSE
   )
-  for (i in 1:(nrow(data) - 1)) {
-    start_date <- data$Date[i]
-    end_date <- start_date %m+% years(period_length)
-    subperiod_data <- data[data$Date >= start_date & data$Date <= end_date, ]
-    if (nrow(subperiod_data) > 1) {
-      actual_years <- as.numeric(interval(start_date, max(subperiod_data$Date)) / years(1))
-      start_value <- subperiod_data$Close[1]
-      end_value <- subperiod_data$Close[nrow(subperiod_data)]
-      cagr <- (end_value / start_value)^(1 / actual_years) - 1
-      cagr_results <- rbind(
-        cagr_results,
-        data.frame(Start_Date = start_date, End_Date = max(subperiod_data$Date), CAGR = cagr)
-      )
+  
+  # Use withProgress to track progress
+  withProgress(message = "Calculating CAGRs", value = 0, {
+    for (i in 1:(nrow(data) - 1)) {
+      start_date <- data$Date[i]
+      end_date <- start_date %m+% years(period_length)
+      subperiod_data <- data[data$Date >= start_date & data$Date <= end_date, ]
+      
+      if (nrow(subperiod_data) > 1) {
+        actual_years <- as.numeric(interval(start_date, max(subperiod_data$Date)) / years(1))
+        start_value <- subperiod_data$Close[1]
+        end_value <- subperiod_data$Close[nrow(subperiod_data)]
+        cagr <- (end_value / start_value)^(1 / actual_years) - 1
+        cagr_results <- rbind(
+          cagr_results,
+          data.frame(Start_Date = start_date, End_Date = max(subperiod_data$Date), CAGR = cagr)
+        )
+      }
+      
+      # Increment progress
+      incProgress(1 / (nrow(data) - 1))
     }
-  }
+  })
+  
   return(cagr_results)
 }
 
@@ -47,14 +56,13 @@ visualize_subperiod_cagrs <- function(cagr_results, period_length) {
     geom_density(fill = "blue", alpha = 0.4) +
     labs(
       title = paste("CAGR Distribution for", period_length, "Year Holding Periods (No Outliers)"),
-      subtitle = paste(outliers_removed, "outliers removed (", 
+      subtitle = paste(outliers_removed, " outliers removed (", 
                        round(percentage_removed, 2), "% of total)", sep = ""),
       x = "CAGR",
       y = "Density"
     ) +
     theme_minimal()
 }
-
 # Shiny UI
 ui <- fluidPage(
   titlePanel("Bitcoin CAGR Analysis"),
@@ -76,37 +84,50 @@ ui <- fluidPage(
 
 # Shiny Server
 server <- function(input, output, session) {
-  # Reactive value to track selected or uploaded file
-  current_file <- reactiveVal(NULL)
+  # Reactive value to store the cache
+  cache <- reactiveValues()
   
-  # Update file dropdown when a new file is uploaded
-  observeEvent(input$file_upload, {
-    req(input$file_upload)
-    file_path <- file.path(getwd(), input$file_upload$name)
-    file.copy(input$file_upload$datapath, file_path, overwrite = TRUE)
-    updateSelectInput(session, "file_select", choices = list.files(pattern = "\\.csv$"), selected = input$file_upload$name)
-    current_file(file_path)
-  })
-  
-  # Update current file when a file is selected from the dropdown
-  observeEvent(input$file_select, {
-    req(input$file_select)
-    current_file(file.path(getwd(), input$file_select))
+  # Load cached results from the working directory on startup
+  observe({
+    cache_files <- list.files(pattern = "\\.rds$")
+    for (file in cache_files) {
+      key <- sub("\\.rds$", "", file) # Remove the file extension to get the key
+      cache[[key]] <- readRDS(file)
+    }
   })
   
   # Load data from the selected or uploaded file
   data <- reactive({
-    req(current_file())
-    file <- current_file()
-    df <- read.csv(file)
+    req(input$file_select)
+    file_path <- file.path(getwd(), input$file_select)
+    df <- read.csv(file_path)
     df$Date <- as.Date(df$Date)
     df
   })
   
-  # Calculate results when the "Analyze" button is clicked
+  # Calculate results with caching and long-term storage
   results <- eventReactive(input$analyze, {
     req(data())
-    calculate_subperiod_cagrs(data(), input$period)
+    period_length <- input$period
+    file_name <- input$file_select
+    
+    # Create a unique key for the cache
+    cache_key <- paste(file_name, period_length, sep = "_")
+    
+    # Check if the result is already cached
+    if (!is.null(cache[[cache_key]])) {
+      message("Using cached results for ", cache_key)
+      return(cache[[cache_key]])
+    }
+    
+    # Otherwise, compute and store the results in the cache
+    result <- calculate_subperiod_cagrs(data(), period_length)
+    cache[[cache_key]] <- result
+    
+    # Save the results to the working directory
+    saveRDS(result, file = paste0(cache_key, ".rds"))
+    
+    return(result)
   })
   
   # Render summary
