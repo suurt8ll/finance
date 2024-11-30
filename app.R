@@ -2,8 +2,8 @@ library(shiny)
 library(ggplot2)
 library(lubridate)
 
-# Functions
-calculate_subperiod_cagrs <- function(data, period_length) {
+# Function to calculate subperiod CAGRs
+calculate_subperiod_cagrs <- function(data, period_length, selected_range) {
   data <- data[order(data$Date), ]
   cagr_results <- data.frame(
     Start_Date = as.Date(character()),
@@ -12,14 +12,18 @@ calculate_subperiod_cagrs <- function(data, period_length) {
     stringsAsFactors = FALSE
   )
   
+  # Extract the start and end of the selected range
+  selected_start <- selected_range[1]
+  selected_end <- selected_range[2]
+  
   # Use withProgress to track progress
   withProgress(message = "Calculating CAGRs", value = 0, {
     for (i in 1:(nrow(data) - 1)) {
       start_date <- data$Date[i]
       end_date <- start_date %m+% years(period_length)
       
-      # Skip if the calculated end date exceeds the maximum date in the data
-      if (end_date > max(data$Date)) {
+      # Skip if start_date or end_date is outside the selected range
+      if (start_date < selected_start || end_date > selected_end) {
         next
       }
       
@@ -44,6 +48,7 @@ calculate_subperiod_cagrs <- function(data, period_length) {
   return(cagr_results)
 }
 
+# Visualization function
 visualize_subperiod_cagrs <- function(cagr_results, period_length) {
   Q1 <- quantile(cagr_results$CAGR, 0.25)
   Q3 <- quantile(cagr_results$CAGR, 0.75)
@@ -52,23 +57,20 @@ visualize_subperiod_cagrs <- function(cagr_results, period_length) {
   upper_bound <- Q3 + 1.5 * IQR
   filtered_results <- cagr_results[cagr_results$CAGR >= lower_bound & cagr_results$CAGR <= upper_bound, ]
   
-  # Calculate the number and percentage of outliers removed
-  total_points <- nrow(cagr_results)
-  outliers_removed <- total_points - nrow(filtered_results)
-  percentage_removed <- (outliers_removed / total_points) * 100
+  outliers_removed <- nrow(cagr_results) - nrow(filtered_results)
+  percentage_removed <- (outliers_removed / nrow(cagr_results)) * 100
   
-  # Plot the distribution of CAGRs without outliers
   ggplot(filtered_results, aes(x = CAGR)) +
     geom_density(fill = "blue", alpha = 0.4) +
     labs(
-      title = paste("CAGR Distribution for", period_length, "Year Holding Periods (No Outliers)"),
-      subtitle = paste(outliers_removed, " outliers removed (", 
-                       round(percentage_removed, 2), "% of total)", sep = ""),
+      title = paste("CAGR Distribution for", period_length, "Year Holding Periods"),
+      subtitle = paste(outliers_removed, "outliers removed (", round(percentage_removed, 2), "% of total)", sep = ""),
       x = "CAGR",
       y = "Density"
     ) +
     theme_minimal()
 }
+
 # Shiny UI
 ui <- fluidPage(
   titlePanel("Bitcoin CAGR Analysis"),
@@ -76,6 +78,14 @@ ui <- fluidPage(
     sidebarPanel(
       selectInput("file_select", "Select CSV File:", choices = list.files(pattern = "\\.csv$"), selected = NULL),
       fileInput("file_upload", "Or Upload a New CSV File:", accept = ".csv"),
+      dateRangeInput(
+        "date_range", 
+        "Select Date Range:", 
+        start = NULL, 
+        end = NULL, 
+        min = NULL, 
+        max = NULL
+      ),
       numericInput("period", "Holding Period (Years):", value = 8, min = 1, step = 1),
       actionButton("analyze", "Analyze")
     ),
@@ -90,17 +100,8 @@ ui <- fluidPage(
 
 # Shiny Server
 server <- function(input, output, session) {
-  # Reactive value to store the cache
+  # Reactive value to store the temporary cache
   cache <- reactiveValues()
-  
-  # Load cached results from the working directory on startup
-  observe({
-    cache_files <- list.files(pattern = "\\.rds$")
-    for (file in cache_files) {
-      key <- sub("\\.rds$", "", file) # Remove the file extension to get the key
-      cache[[key]] <- readRDS(file)
-    }
-  })
   
   # Load data from the selected or uploaded file
   data <- reactive({
@@ -111,14 +112,34 @@ server <- function(input, output, session) {
     df
   })
   
-  # Calculate results with caching and long-term storage
-  results <- eventReactive(input$analyze, {
+  # Update the date range input based on the dataset
+  observe({
     req(data())
+    updateDateRangeInput(
+      session, 
+      "date_range", 
+      start = min(data()$Date), 
+      end = max(data()$Date), 
+      min = min(data()$Date), 
+      max = max(data()$Date)
+    )
+  })
+  
+  # Filter data based on the selected date range
+  filtered_data <- reactive({
+    req(data(), input$date_range)
+    data()[data()$Date >= input$date_range[1] & data()$Date <= input$date_range[2], ]
+  })
+  
+  # Calculate results with temporary caching
+  results <- eventReactive(input$analyze, {
+    req(filtered_data())
     period_length <- input$period
     file_name <- input$file_select
+    date_range_key <- paste(as.character(input$date_range), collapse = "_")
     
     # Create a unique key for the cache
-    cache_key <- paste(file_name, period_length, sep = "_")
+    cache_key <- paste(file_name, period_length, date_range_key, sep = "_")
     
     # Check if the result is already cached
     if (!is.null(cache[[cache_key]])) {
@@ -127,12 +148,8 @@ server <- function(input, output, session) {
     }
     
     # Otherwise, compute and store the results in the cache
-    result <- calculate_subperiod_cagrs(data(), period_length)
+    result <- calculate_subperiod_cagrs(filtered_data(), period_length, input$date_range)
     cache[[cache_key]] <- result
-    
-    # Save the results to the working directory
-    saveRDS(result, file = paste0(cache_key, ".rds"))
-    
     return(result)
   })
   
