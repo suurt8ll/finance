@@ -13,8 +13,8 @@ library(ggplot2)
 # ---- Load and Prepare Data ----
 
 # Load the data from the CSV file
-#csv_file <- "bitcoin_daily_prices.csv"
-csv_file <- "Tartu.csv"
+csv_file <- "bitcoin_daily_prices.csv"
+#csv_file <- "Tartu.csv"
 price_data <- read.csv(csv_file)
 
 # Ensure your Date column is in Date format
@@ -43,13 +43,15 @@ calculate_subperiod_cagrs <- function(data, period_length) {
     start_date <- data$Date[i]
     end_date <- start_date %m+% years(period_length) # Add precise years
     
+    # Skip if the calculated end date exceeds the maximum date in the data
+    if (end_date > max(data$Date)) {
+      next
+    }
+    
     subperiod_data <- data[data$Date >= start_date & data$Date <= end_date, ]
     
     if (nrow(subperiod_data) > 1) {
       actual_years <- as.numeric(interval(start_date, max(subperiod_data$Date)) / years(1))
-      
-      print(c(start_date, end_date))
-      print(actual_years)
       
       start_value <- subperiod_data$Close[1]
       end_value <- subperiod_data$Close[nrow(subperiod_data)]
@@ -61,7 +63,6 @@ calculate_subperiod_cagrs <- function(data, period_length) {
       )
     }
   }
-  
   
   return(cagr_results)
 }
@@ -131,7 +132,7 @@ summarize_subperiod_cagrs <- function(cagr_results, period_length) {
 
 # Specify the period length
 #period_length <- as.numeric(readline(prompt = "Enter the holding period length (in years): "))
-period_length <- 8
+period_length <- 4
 
 # Step 1: Calculate the subperiod CAGRs
 cagr_results <- calculate_subperiod_cagrs(price_data, period_length)

@@ -17,6 +17,12 @@ calculate_subperiod_cagrs <- function(data, period_length) {
     for (i in 1:(nrow(data) - 1)) {
       start_date <- data$Date[i]
       end_date <- start_date %m+% years(period_length)
+      
+      # Skip if the calculated end date exceeds the maximum date in the data
+      if (end_date > max(data$Date)) {
+        next
+      }
+      
       subperiod_data <- data[data$Date >= start_date & data$Date <= end_date, ]
       
       if (nrow(subperiod_data) > 1) {
