@@ -2,8 +2,8 @@ library(dplyr)
 library(tidyr)
 
 # Load data
-n225 <- read.csv("N225.csv") %>% select(Date, Close)
-usdjpy <- read.csv("USDJPY_long_term.csv") %>% select(Date, Close)
+n225 <- read.csv("./data/N225.csv") %>% select(Date, Close)
+usdjpy <- read.csv("./data/USDJPY_long_term.csv") %>% select(Date, Close)
 
 # Format data
 n225$Date <- as.Date(n225$Date)
@@ -27,4 +27,4 @@ final_data <- merged_data %>%
   select(Date, Close = Nikkei_in_USD)
 
 # Save to a CSV file
-write.csv(final_data, "N225USD.csv", row.names = FALSE, quote = FALSE)
+write.csv(final_data, "./data/N225USD.csv", row.names = FALSE, quote = FALSE)

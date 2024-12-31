@@ -73,7 +73,7 @@ ui <- fluidPage(
   titlePanel("Bitcoin CAGR Analysis"),
   sidebarLayout(
     sidebarPanel(
-      selectInput("file_select", "Select CSV File:", choices = list.files(pattern = "\\.csv$"), selected = NULL),
+      selectInput("file_select", "Select CSV File:", choices = list.files(path = "./data", pattern = "\\.csv$"), selected = NULL),
       fileInput("file_upload", "Or Upload a New CSV File:", accept = ".csv"),
       dateRangeInput(
         "date_range", 
@@ -104,7 +104,7 @@ server <- function(input, output, session) {
   # Load data from the selected or uploaded file
   data <- reactive({
     req(input$file_select)
-    file_path <- file.path(getwd(), input$file_select)
+    file_path <- file.path("./data", input$file_select)
     df <- read.csv(file_path) %>% select(Date, Close)
     df$Date <- as.Date(df$Date)
     df

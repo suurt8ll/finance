@@ -6,7 +6,7 @@ library(lubridate) # For handling dates
 
 # Read the data, excluding Listings columns
 data <- read.csv(
-  "extracted_data.csv",
+  "./data/extracted_data.csv",
   colClasses = c(
     "character", # Date
     "numeric",   # Price_A
@@ -63,4 +63,4 @@ ggplotly(gg)
 # Prepare the new data frame with Date and Close columns
 new_data <- data.frame(Date = data$Date, Close = data$Price_A)
 # Save the new data frame to a CSV file
-write.csv(new_data, "Tartu.csv", row.names = FALSE, quote = FALSE)
+write.csv(new_data, "./data/Tartu.csv", row.names = FALSE, quote = FALSE)

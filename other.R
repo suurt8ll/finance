@@ -11,8 +11,8 @@ library(ggplot2)
 
 # ---- Load and Prepare Data ----
 # Load the data from the CSV file
-csv_file <- "bitcoin_daily_prices.csv"
-#csv_file <- "Tartu.csv"
+csv_file <- "./data/bitcoin_daily_prices.csv"
+#csv_file <- "./data/Tartu.csv"
 price_data <- read.csv(csv_file)
 
 # Ensure your Date column is in Date format
