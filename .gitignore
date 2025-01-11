@@ -3,6 +3,8 @@
 .RData
 .Ruserdata
 
+venv
+
 *.csv
 !data/example.csv
 *.rds
